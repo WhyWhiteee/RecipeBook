@@ -207,4 +207,4 @@ class Command(BaseCommand):
             for recipe in chosen:
                 _, created = Favorite.objects.get_or_create(user=user, recipe=recipe)
                 if created:
-                    self.stdout.write(f"  Favorite: {user.username} ♥ {recipe.title}")
+                    self.stdout.write(f"  Favorite: {user.username} -> {recipe.title}")
