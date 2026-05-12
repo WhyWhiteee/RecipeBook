@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.authtoken.models import Token
@@ -32,6 +33,80 @@ from .serializers import (
 class HealthCheckView(APIView):
     def get(self, request, *args, **kwargs):
         return Response({"status": "ok"})
+
+
+class StatisticsView(APIView):
+    """Сводка для дашборда: счётчики, рецепты по кухням, последние записи."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        recipe_qs = Recipe.objects.filter(author=user)
+
+        counts = {
+            "recipes": recipe_qs.count(),
+            "ingredients": Ingredient.objects.count(),
+            "cuisines": Cuisine.objects.count(),
+            "favorites": Favorite.objects.filter(user=user).count(),
+            "recipe_steps": RecipeStep.objects.filter(recipe__author=user).count(),
+            "recipe_ingredients": RecipeIngredient.objects.filter(recipe__author=user).count(),
+        }
+
+        by_cuisine = (
+            recipe_qs.values("cuisine_id", "cuisine__name")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        recipes_by_cuisine = [
+            {
+                "cuisine_id": row["cuisine_id"],
+                "cuisine_name": row["cuisine__name"] or "Без кухни",
+                "count": row["count"],
+            }
+            for row in by_cuisine
+        ]
+
+        recent_recipes = list(
+            recipe_qs.select_related("cuisine")
+            .order_by("-created_at")[:10]
+            .values("id", "title", "status", "created_at", "cuisine__name")
+        )
+        recent_recipes_out = [
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "status": r["status"],
+                "created_at": r["created_at"],
+                "cuisine_name": r["cuisine__name"],
+            }
+            for r in recent_recipes
+        ]
+
+        recent_favorites = list(
+            Favorite.objects.filter(user=user)
+            .select_related("recipe")
+            .order_by("-created_at")[:10]
+            .values("id", "created_at", "recipe__title", "recipe_id")
+        )
+        recent_favorites_out = [
+            {
+                "id": x["id"],
+                "created_at": x["created_at"],
+                "recipe_title": x["recipe__title"],
+                "recipe_id": x["recipe_id"],
+            }
+            for x in recent_favorites
+        ]
+
+        return Response(
+            {
+                "counts": counts,
+                "recipes_by_cuisine": recipes_by_cuisine,
+                "recent_recipes": recent_recipes_out,
+                "recent_favorites": recent_favorites_out,
+            }
+        )
 
 
 class RegisterView(APIView):

@@ -9,6 +9,7 @@ from .views import (
     RecipeIngredientViewSet,
     RecipeStepViewSet,
     RecipeViewSet,
+    StatisticsView,
     UserProfileViewSet,
 )
 
@@ -27,6 +28,7 @@ router.register(r"favorites", FavoriteViewSet, basename="favorite")
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="health-check"),
+    path("statistics/", StatisticsView.as_view(), name="statistics"),
     path("auth/", include("recipes.auth_urls")),
     path("", include(router.urls)),
 ]
